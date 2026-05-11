@@ -1,0 +1,121 @@
+<project>
+  <name>RustyGematria</name>
+  <language>Rust</language>
+  <author>Andrei Merlescu</author>
+  <license>GPL-3.0</license>
+
+  <!-- cargo is Rust's built-in build tool and package manager, like `go mod` in Go -->
+  <!-- a "crate" is what Rust calls a package, like a Go module -->
+  <build-tool>cargo</build-tool>
+
+  <description>
+    A terminal UI application that computes gematria cipher values for words,
+    phrases, sentences, and documents. Generates novel phrases from embedded
+    dictionaries that match target gematria values. Allows interactive
+    exploration of results in a structured TUI interface.
+  </description>
+
+  <ciphers>
+    <!-- ported from github.com/andreimerlescu/gematria -->
+    <cipher name="english" />
+    <cipher name="jewish" />
+    <cipher name="simple" />
+    <cipher name="mystery" />
+    <cipher name="majestic" />
+    <cipher name="eights" />
+  </ciphers>
+
+  <dictionaries>
+    <!-- ported from github.com/andreimerlescu/genwordpass /data directory -->
+    <!-- embedded into the binary at compile time, zero runtime file I/O -->
+    <dictionary language="english" />
+    <dictionary language="french" />
+    <dictionary language="german" />
+    <dictionary language="italian" />
+    <dictionary language="spanish" />
+  </dictionaries>
+
+  <matrix>
+    <!-- built once at compile time by build.rs, embedded as binary blob -->
+    <!-- lookup: matrix[word_count][cipher_name][value] = [phrase, phrase, ...] -->
+    <!-- word counts 3 and 4 are pre-built, 5 and 6 are generated at runtime -->
+    <pre-built word-counts="3,4" />
+    <runtime-generated word-counts="5,6" />
+  </matrix>
+
+  <phrase-engine>
+    <!-- sliding window substring decomposition -->
+    <!-- ported from github.com/andreimerlescu/textee -->
+    <textee-decomposition enabled="true" />
+
+    <!-- sentence templates by word count -->
+    <!-- each slot is filled from POS-tagged dictionary words -->
+    <!-- entropy ensures different sentences each session -->
+    <templates>
+      <template words="3" pattern="article noun verb" />
+      <template words="3" pattern="proper-noun verb adverb" />
+      <template words="4" pattern="article adjective noun verb" />
+      <template words="4" pattern="article noun verb adverb" />
+      <template words="4" pattern="pronoun verb article noun" />
+      <template words="5" pattern="adjective noun verb adjective noun" />
+      <template words="5" pattern="proper-noun verb preposition article noun" />
+      <template words="5" pattern="article noun verb conjunction verb" />
+      <template words="6" pattern="article noun verb preposition article noun" />
+    </templates>
+  </phrase-engine>
+
+  <input-modes>
+    <!-- three ways to enter the TUI explorer -->
+    <mode name="file" flag="--file document.txt" />
+    <mode name="dictionary" flag="--lang en" />
+    <!-- no flag drops into a freetext editor pane inside the TUI -->
+    <mode name="freetext" flag="none" />
+  </input-modes>
+
+  <tui>
+    <!-- ratatui is the standard Rust TUI library, actively maintained -->
+    <!-- crossterm handles keyboard, mouse, and raw terminal mode -->
+    <library name="ratatui" />
+    <library name="crossterm" />
+
+    <features>
+      <feature>browse results by word and phrase with arrow keys</feature>
+      <feature>filter by cipher value across any of the six ciphers</feature>
+      <feature>sort by any cipher column</feature>
+      <!-- find all entries in the document matching a target value -->
+      <feature>search by value within current document</feature>
+      <!-- highlight when two entries share a value across different ciphers -->
+      <feature>cross-reference matching values within a document</feature>
+      <!-- cross-language: find French words matching English value -->
+      <feature>cross-language value matching across dictionaries</feature>
+      <!-- fresh generated phrases every session from the matrix -->
+      <feature>entropy-driven phrase suggestions for any selected value</feature>
+    </features>
+  </tui>
+
+  <dependencies>
+    <!-- ratatui: TUI rendering -->
+    <!-- crossterm: terminal input and raw mode -->
+    <!-- clap: CLI argument parsing, like Go's flag package -->
+    <!-- rayon: data parallelism for matrix construction at compile time -->
+    <!-- bincode: compact binary serialization for the embedded matrix -->
+    <!-- serde: serialization framework that bincode builds on -->
+    <dep name="ratatui" />
+    <dep name="crossterm" />
+    <dep name="clap" />
+    <dep name="rayon" />
+    <dep name="bincode" />
+    <dep name="serde" />
+  </dependencies>
+
+  <build-sequence>
+    <!-- follow this order, each step depends on the one before it -->
+    <step order="1">cipher engine - pure functions, verify against Go output</step>
+    <step order="2">dictionary embedding via build.rs</step>
+    <step order="3">matrix construction and binary embedding</step>
+    <step order="4">textee phrase decomposition port</step>
+    <step order="5">TUI shell with ratatui</step>
+    <step order="6">generative sentence engine</step>
+  </build-sequence>
+
+</project>

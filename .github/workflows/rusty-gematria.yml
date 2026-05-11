@@ -1,0 +1,22 @@
+name: RustyGematria
+
+# only runs when you manually trigger it from the GitHub Actions tab
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # checks out your repository code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # installs Rust and Cargo - like installing Go on a fresh machine
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # cargo test runs all tests in all files
+      - name: Test
+        run: cargo test

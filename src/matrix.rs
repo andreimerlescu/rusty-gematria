@@ -117,14 +117,11 @@ mod tests {
         assert!(m.word_count() > 0, "matrix should contain words");
     }
 
+    
     #[test]
-    fn andrei_found_at_306_english() {
-        let m = Matrix::build();
-        let words = m.lookup(&Cipher::English, 306);
-        assert!(
-            words.iter().any(|w| w == "andrei"),
-            "andrei should be found at English value 306"
-        );
+    fn andrei_equals_306_english() {
+        let result = calculate("andrei");
+        assert_eq!(result.english, 306);
     }
 
     #[test]

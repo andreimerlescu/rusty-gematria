@@ -4,5 +4,14 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-ratatui = "0.29"
-crossterm = "0.28"
+ratatui    = "0.29"
+crossterm  = "0.28"
+clap       = { version = "4", features = ["derive"] }
+serde      = { version = "1", features = ["derive"] }
+bincode    = "1"
+
+[build-dependencies]
+# build-dependencies are only available to build.rs
+# not to your main program
+serde      = { version = "1", features = ["derive"] }
+bincode    = "1"

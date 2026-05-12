@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use crate::cipher::{self, Gematria};
 use crate::dictionary::{self, Language};
+use crate::matrix::Cipher;
 
 // part of speech tags
 // each dictionary word gets one tag

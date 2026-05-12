@@ -12,6 +12,9 @@ jobs:
       # checks out your repository code
       - name: Checkout
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 
       # installs Rust and Cargo - like installing Go on a fresh machine
       - name: Install Rust

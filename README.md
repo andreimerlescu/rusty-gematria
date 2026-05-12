@@ -149,3 +149,12 @@ supported languages. Each symbol carries its own cipher value distinct from its 
 - [gematria](https://github.com/andreimerlescu/gematria) — the Go cipher library
 - [textee](https://github.com/andreimerlescu/textee) — the sliding window algorithm
 - [genwordpass](https://github.com/andreimerlescu/genwordpass) — the dictionary source
+
+## License
+
+Copyright (c) 2026 Andrei Merlescu. All Rights Reserved.
+
+This software is proprietary. No part of this software may be reproduced,
+distributed, or transmitted in any form or by any means without the prior
+written permission of the author.
+

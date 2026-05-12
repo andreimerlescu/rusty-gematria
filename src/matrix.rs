@@ -1,10 +1,16 @@
 // src/matrix.rs
 // indexes every dictionary word by its cipher values
-// lookup: matrix.lookup(Cipher::English, 306) -> ["michael", ...]
+// the matrix is prebuilt at compile time by build.rs
+// and embedded as a binary blob - startup is instant
 
 use std::collections::HashMap;
-use crate::cipher;
-use crate::dictionary::{self, Language};
+
+// embed the prebuilt matrix binary at compile time
+// concat! and env! are macros that resolve at compile time
+// OUT_DIR is where build.rs wrote matrix.bin
+static MATRIX_BYTES: &[u8] = include_bytes!(
+    concat!(env!("OUT_DIR"), "/matrix.bin")
+);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Cipher {
@@ -16,68 +22,48 @@ pub enum Cipher {
     Eights,
 }
 
+impl Cipher {
+    // converts enum to the string key used in the prebuilt matrix
+    fn key(&self) -> &'static str {
+        match self {
+            Cipher::English  => "english",
+            Cipher::Jewish   => "jewish",
+            Cipher::Simple   => "simple",
+            Cipher::Mystery  => "mystery",
+            Cipher::Majestic => "majestic",
+            Cipher::Eights   => "eights",
+        }
+    }
+}
+
+// the full index deserialized from the embedded binary
+type MatrixIndex = HashMap<String, HashMap<u64, Vec<String>>>;
+
 pub struct Matrix {
-    index: HashMap<Cipher, HashMap<u64, Vec<String>>>,
+    index: MatrixIndex,
 }
 
 impl Matrix {
+    // deserializes the prebuilt matrix from the embedded bytes
+    // called once at startup - takes microseconds not seconds
     pub fn build() -> Matrix {
-        let mut index: HashMap<Cipher, HashMap<u64, Vec<String>>> = HashMap::new();
-
-        for cipher in &[
-            Cipher::English,
-            Cipher::Jewish,
-            Cipher::Simple,
-            Cipher::Mystery,
-            Cipher::Majestic,
-            Cipher::Eights,
-        ] {
-            index.insert(cipher.clone(), HashMap::new());
-        }
-
-        for lang in &[
-            Language::English,
-            Language::Spanish,
-            Language::Romanian,
-            Language::French,
-        ] {
-            for word in dictionary::words(lang) {
-                let g = cipher::calculate(word);
-
-                let pairs = [
-                    (Cipher::English,  g.english),
-                    (Cipher::Jewish,   g.jewish),
-                    (Cipher::Simple,   g.simple),
-                    (Cipher::Mystery,  g.mystery),
-                    (Cipher::Majestic, g.majestic),
-                    (Cipher::Eights,   g.eights),
-                ];
-
-                for (cipher_key, value) in pairs {
-                    index
-                        .get_mut(&cipher_key)
-                        .unwrap()
-                        .entry(value)
-                        .or_insert_with(Vec::new)
-                        .push(word.to_string());
-                }
-            }
-        }
-
+        let index: MatrixIndex = bincode::deserialize(MATRIX_BYTES)
+            .expect("failed to deserialize prebuilt matrix");
         Matrix { index }
     }
 
     pub fn lookup(&self, cipher: &Cipher, value: u64) -> &[String] {
         self.index
-            .get(cipher)
+            .get(cipher.key())
             .and_then(|m| m.get(&value))
             .map(|v| v.as_slice())
             .unwrap_or(&[])
     }
 
+    #[allow(dead_code)]
     pub fn word_count(&self) -> usize {
         self.index
-            .get(&Cipher::English)
+            .get("english")
             .map(|m| m.values().map(|v| v.len()).sum())
             .unwrap_or(0)
     }
@@ -90,9 +76,6 @@ mod tests {
     use super::*;
     use std::sync::OnceLock;
 
-    // builds the matrix once and reuses it across all tests in this module
-    // OnceLock is Rust's built-in "initialize exactly once" type
-    // same concept as a singleton in Go using sync.Once
     fn shared_matrix() -> &'static Matrix {
         static MATRIX: OnceLock<Matrix> = OnceLock::new();
         MATRIX.get_or_init(Matrix::build)
@@ -121,4 +104,3 @@ mod tests {
         assert!(words.is_empty(), "impossible value should return empty");
     }
 }
-

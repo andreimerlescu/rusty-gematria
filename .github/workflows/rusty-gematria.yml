@@ -1,25 +1,90 @@
 name: RustyGematria
 
-# only runs when you manually trigger it from the GitHub Actions tab
 on:
+  # manual trigger for testing
   workflow_dispatch:
+
+  # run tests on pushes to develop
+  push:
+    branches:
+      - develop
+
+  # build and release on merges into master
+  pull_request:
+    branches:
+      - master
+    types:
+      - closed
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CARGO_TERM_COLOR: always
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
-
     steps:
-      # checks out your repository code
       - name: Checkout
         uses: actions/checkout@v4
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-
-      # installs Rust and Cargo - like installing Go on a fresh machine
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # cargo test runs all tests in all files
       - name: Test
         run: cargo test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # cargo build --release produces an optimized binary
+      # debug builds are what cargo test uses - release is what you ship
+      - name: Build Release Binary
+        run: cargo build --release
+
+      # uploads the binary as a downloadable artifact in GitHub Actions
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty-gematria-linux-amd64
+          path: target/release/rusty-gematria
+          retention-days: 30
+
+  release:
+    name: Release
+    # only runs on a completed merge into master
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # install cargo-dist - the goreleaser equivalent for Rust
+      - name: Install cargo-dist
+        run: cargo install cargo-dist --locked
+
+      # build release artifacts for multiple targets
+      - name: Build Dist
+        run: cargo dist build --output-format=json
+
+      # create a GitHub release with the built artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/release/rusty-gematria
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

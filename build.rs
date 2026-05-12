@@ -92,6 +92,7 @@ fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
 
 // the serializable matrix entry
 // serde derives allow bincode to serialize this struct
+#[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize)]
 struct MatrixEntry {
     english:  u64,

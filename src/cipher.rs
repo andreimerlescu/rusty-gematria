@@ -155,8 +155,13 @@ pub fn calculate(input: &str) -> Gematria {
 fn compute_array(input: &str, table: &[u64; 26]) -> u64 {
     input
         .chars()
-        .filter(|c| c.is_ascii_alphabetic())
-        .map(|c| table[c as usize - 'a' as usize])
+        .filter_map(|c| {
+            if c.is_ascii_alphabetic() {
+                Some(table[c as usize - 'a' as usize])
+            } else {
+                extended_value(c)
+            }
+        })
         .sum()
 }
 
@@ -164,8 +169,13 @@ fn compute_array(input: &str, table: &[u64; 26]) -> u64 {
 fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
     input
         .chars()
-        .filter(|c| c.is_ascii_alphabetic())
-        .map(|c| *table.get(&c).unwrap_or(&0))
+        .filter_map(|c| {
+            if c.is_ascii_alphabetic() {
+                Some(*table.get(&c).unwrap_or(&0))
+            } else {
+                extended_value(c)
+            }
+        })
         .sum()
 }
 

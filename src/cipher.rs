@@ -88,6 +88,54 @@ fn normalize(input: &str) -> String {
         .collect()
 }
 
+fn extended_value(c: char) -> Option<u64> {
+    match c {
+        // romanian
+        'ă' => Some(3),
+        'â' => Some(6),
+        'î' => Some(9),
+        'ș' => Some(12),
+        'ț' => Some(17),
+        'ş' => Some(21), // cedilla variant - older texts
+        'ţ' => Some(33), // cedilla variant - older texts
+
+        // french
+        'à' => Some(3),
+        'æ' => Some(144),
+        'ç' => Some(6),
+        'è' => Some(9),
+        'é' => Some(12),
+        'ê' => Some(17),
+        'ë' => Some(21),
+        'ï' => Some(33),
+        'ô' => Some(45),
+        'œ' => Some(55),
+        'ù' => Some(66),
+        'û' => Some(77),
+        'ü' => Some(88),
+
+        // spanish
+        'á' => Some(3),
+        'í' => Some(6),
+        'ó' => Some(9),
+        'ú' => Some(12),
+        'ñ' => Some(17),
+
+        // german
+        'ä' => Some(3),
+        'ö' => Some(6),
+        'ß' => Some(9),
+
+        // italian
+        'ì' => Some(17),
+        'ò' => Some(76),
+
+        // no match
+        _ => None,
+    }
+}
+
+
 // --- the calculator ---
 
 pub fn calculate(input: &str) -> Gematria {

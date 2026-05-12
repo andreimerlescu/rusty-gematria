@@ -1,3 +1,6 @@
+# Prompt
+
+```
 <project>
   <name>RustyGematria</name>
   <language>Rust</language>
@@ -119,3 +122,4 @@
   </build-sequence>
 
 </project>
+```

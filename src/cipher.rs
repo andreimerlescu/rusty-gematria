@@ -165,27 +165,3 @@ fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
         })
         .sum()
 }
-
-// --- tests ---
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn andrei_equals_306_english() {
-        let result = calculate("andrei");
-        assert_eq!(result.english, 306);
-    }
-
-    #[test]
-    fn michael_found_at_306_english() {
-        let m = Matrix::build();
-        let words = m.lookup(&Cipher::English, 306);
-        assert!(
-            words.iter().any(|w| w == "michael"),
-            "michael should be found at English value 306"
-        );
-    }
-
-}

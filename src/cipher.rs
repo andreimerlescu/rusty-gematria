@@ -83,8 +83,8 @@ fn extended_value(c: char) -> Option<u64> {
         'î' => Some(9),
         'ș' => Some(12),
         'ț' => Some(17),
-        'ş' => Some(21), // cedilla variant - older texts
-        'ţ' => Some(33), // cedilla variant - older texts
+        'ş' => Some(21),
+        'ţ' => Some(33),
 
         // french
         'à' => Some(3),
@@ -117,11 +117,9 @@ fn extended_value(c: char) -> Option<u64> {
         'ì' => Some(17),
         'ò' => Some(76),
 
-        // no match
         _ => None,
     }
 }
-
 
 // --- the calculator ---
 
@@ -138,7 +136,6 @@ pub fn calculate(input: &str) -> Gematria {
     }
 }
 
-// handles array-based ciphers
 fn compute_array(input: &str, table: &[u64; 26]) -> u64 {
     input
         .chars()
@@ -152,7 +149,6 @@ fn compute_array(input: &str, table: &[u64; 26]) -> u64 {
         .sum()
 }
 
-// handles HashMap-based ciphers
 fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
     input
         .chars()
@@ -164,4 +160,23 @@ fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
             }
         })
         .sum()
+}
+
+// --- tests ---
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn andrei_equals_306_english() {
+        let result = calculate("andrei");
+        assert_eq!(result.english, 306);
+    }
+
+    #[test]
+    fn michael_equals_306_english() {
+        let result = calculate("michael");
+        assert_eq!(result.english, 306);
+    }
 }

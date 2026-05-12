@@ -4,6 +4,7 @@
 // --limit controls maximum phrase length in words, default 3
 
 // a single phrase extracted from the input with its position
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Phrase {
     pub text:       String,

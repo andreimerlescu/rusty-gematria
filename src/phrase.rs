@@ -151,7 +151,7 @@ pub struct GeneratedPhrase {
 pub fn generate(
     tagged_words: &[TaggedWord],
     target:       u64,
-    cipher:       &Cipher,
+    _cipher:       &Cipher,
     limit:        usize,
 ) -> Vec<GeneratedPhrase> {
     // build a POS index for fast lookup

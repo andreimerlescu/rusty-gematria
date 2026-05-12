@@ -1,9 +1,9 @@
 // src/dictionary.rs
 
-const ENGLISH_RAW:  &str = include_str!("../data/english.txt");
-const SPANISH_RAW:  &str = include_str!("../data/spanish.txt");
-const ROMANIAN_RAW: &str = include_str!("../data/romanian.txt");
-const FRENCH_RAW:   &str = include_str!("../data/french.txt");
+const ENGLISH_RAW:  &str = include_str!("../data/en.txt");
+const SPANISH_RAW:  &str = include_str!("../data/es.txt");
+const ROMANIAN_RAW: &str = include_str!("../data/ro.txt");
+const FRENCH_RAW:   &str = include_str!("../data/fr.txt");
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Language {

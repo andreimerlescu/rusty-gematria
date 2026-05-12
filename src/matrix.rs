@@ -88,16 +88,25 @@ impl Matrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
+    // builds the matrix once and reuses it across all tests in this module
+    // OnceLock is Rust's built-in "initialize exactly once" type
+    // same concept as a singleton in Go using sync.Once
+    fn shared_matrix() -> &'static Matrix {
+        static MATRIX: OnceLock<Matrix> = OnceLock::new();
+        MATRIX.get_or_init(Matrix::build)
+    }
 
     #[test]
     fn matrix_builds_without_panic() {
-        let m = Matrix::build();
+        let m = shared_matrix();
         assert!(m.word_count() > 0, "matrix should contain words");
     }
 
     #[test]
     fn michael_found_at_306_english() {
-        let m = Matrix::build();
+        let m = shared_matrix();
         let words = m.lookup(&Cipher::English, 306);
         assert!(
             words.iter().any(|w| w == "michael"),
@@ -107,8 +116,9 @@ mod tests {
 
     #[test]
     fn empty_result_for_impossible_value() {
-        let m = Matrix::build();
+        let m = shared_matrix();
         let words = m.lookup(&Cipher::English, u64::MAX);
         assert!(words.is_empty(), "impossible value should return empty");
     }
 }
+

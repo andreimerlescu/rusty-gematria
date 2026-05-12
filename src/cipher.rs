@@ -179,8 +179,13 @@ mod tests {
     }
 
     #[test]
-    fn michael_equals_306_english() {
-        let result = calculate("michael");
-        assert_eq!(result.english, 306);
+    fn michael_found_at_306_english() {
+        let m = Matrix::build();
+        let words = m.lookup(&Cipher::English, 306);
+        assert!(
+            words.iter().any(|w| w == "michael"),
+            "michael should be found at English value 306"
+        );
     }
+
 }

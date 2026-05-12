@@ -65,7 +65,7 @@ fn mystery_table() -> HashMap<char, u64> {
 // --- main struct, matches your Go Gematria struct exactly ---
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Gematria {
     pub original: String,
     pub english:  u64,

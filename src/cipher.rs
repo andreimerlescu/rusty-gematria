@@ -75,19 +75,6 @@ pub struct Gematria {
     pub eights:   u64,
 }
 
-fn normalize(input: &str) -> String {
-    input
-        .chars()
-        .map(|c| match c {
-            'ă' | 'â' => 'a',
-            'î' => 'i',
-            'ș' | 'ş' => 's', // two versions exist in Unicode - both covered
-            'ț' | 'ţ' => 't', // same here
-            _ => c,
-        })
-        .collect()
-}
-
 fn extended_value(c: char) -> Option<u64> {
     match c {
         // romanian

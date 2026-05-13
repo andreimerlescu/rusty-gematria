@@ -12,6 +12,7 @@ use clap::Parser;
 use dictionary::Language;
 use matrix::Matrix;
 use phrase::build_tagged_words;
+use rayon::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -33,7 +34,6 @@ struct Args {
     #[arg(short, long, default_value_t = 369, help = "Phrase suggestion rotation delay in ms (default: 369)")]
     delay: u64,
 
-    // launch native GUI instead of terminal TUI
     #[arg(short, long, help = "Launch graphical interface instead of TUI")]
     gui: bool,
 }
@@ -43,7 +43,22 @@ fn main() {
 
     let initial_text: Option<String> = if let Some(path) = &args.file {
         match std::fs::read_to_string(path) {
-            Ok(contents) => Some(contents),
+            Ok(contents) => {
+                // parallel textee decomposition for large files
+                let limit = args.limit;
+                let phrases: Vec<String> = contents
+                    .lines()
+                    .collect::<Vec<&str>>()
+                    .par_iter()
+                    .flat_map(|line| {
+                        textee::extract(line, limit)
+                            .into_iter()
+                            .map(|p| p.text)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                Some(phrases.join("\n"))
+            }
             Err(e) => {
                 eprintln!("Error reading file '{}': {}", path, e);
                 std::process::exit(1);

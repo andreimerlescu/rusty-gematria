@@ -4,8 +4,6 @@
 
 use rusty_gematria::cipher;
 use rusty_gematria::matrix::{Cipher, Matrix};
-use rusty_gematria::textee;
-use rusty_gematria::phrase;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};

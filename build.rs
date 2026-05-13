@@ -1,19 +1,14 @@
 // build.rs
 // runs at compile time before the main program is compiled
-// reads dictionary files, computes all cipher values,
+// reads dictionary files, computes all cipher values in parallel via rayon,
 // serializes the result into a binary blob embedded in the binary
-// this means Matrix::build() at runtime is just a deserialization
-// instead of iterating millions of words
 
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
+use rayon::prelude::*;
 
-// we cannot use crate:: here - build.rs is a separate program
-// so we inline the cipher logic directly
-
-// same values as src/cipher.rs
 const ENGLISH: [u64; 26] = [
     6,  12,  18,  24,  30,  36,  42,  48,  54,  60,  66,  72,  78,
    84,  90,  96, 102, 108, 114, 120, 126, 132, 138, 144, 150, 156,
@@ -90,8 +85,6 @@ fn compute_table(input: &str, table: &HashMap<char, u64>) -> u64 {
     }).sum()
 }
 
-// the serializable matrix entry
-// serde derives allow bincode to serialize this struct
 #[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize)]
 struct MatrixEntry {
@@ -103,30 +96,23 @@ struct MatrixEntry {
     eights:   u64,
 }
 
-// the full prebuilt matrix
-// HashMap<cipher_name, HashMap<value, Vec<word>>>
 type PrebuiltMatrix = HashMap<String, HashMap<u64, Vec<String>>>;
 
 fn main() {
-    // tell cargo to rerun build.rs if any dictionary file changes
     println!("cargo:rerun-if-changed=data/en.txt");
     println!("cargo:rerun-if-changed=data/es.txt");
     println!("cargo:rerun-if-changed=data/ro.txt");
     println!("cargo:rerun-if-changed=data/fr.txt");
+    println!("cargo:rerun-if-changed=build.rs");
 
     let jewish  = jewish_table();
     let mystery = mystery_table();
 
-    let mut matrix: PrebuiltMatrix = HashMap::new();
-    for cipher in &["english","jewish","simple","mystery","majestic","eights"] {
-        matrix.insert(cipher.to_string(), HashMap::new());
-    }
-
-    // read each dictionary file relative to the project root
-    // env::var("CARGO_MANIFEST_DIR") gives us the project root path
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let data_dir = Path::new(&manifest_dir).join("data");
 
+    // collect all words from all dictionaries
+    let mut all_words: Vec<String> = Vec::new();
     for filename in &["en.txt", "es.txt", "ro.txt", "fr.txt"] {
         let path = data_dir.join(filename);
         let content = match fs::read_to_string(&path) {
@@ -136,44 +122,53 @@ fn main() {
                 continue;
             }
         };
-
         for word in content.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let lower = word.to_lowercase();
-
-            let english  = compute_array(&lower, &ENGLISH);
-            let jewish_v = compute_table(&lower, &jewish);
-            let simple   = compute_array(&lower, &SIMPLE);
-            let mystery_v= compute_table(&lower, &mystery);
-            let majestic = compute_array(&lower, &MAJESTIC);
-            let eights   = compute_array(&lower, &EIGHTS);
-
-            let pairs = [
-                ("english",  english),
-                ("jewish",   jewish_v),
-                ("simple",   simple),
-                ("mystery",  mystery_v),
-                ("majestic", majestic),
-                ("eights",   eights),
-            ];
-
-            for (cipher_name, value) in &pairs {
-                matrix
-                    .get_mut(*cipher_name)
-                    .unwrap()
-                    .entry(*value)
-                    .or_insert_with(Vec::new)
-                    .push(word.to_string());
-            }
+            all_words.push(word.to_string());
         }
     }
 
-    // serialize and write to OUT_DIR
-    // OUT_DIR is a special directory Cargo provides for build output
-    // it is unique per build configuration and target
+    // compute all cipher values in parallel via rayon
+    let computed: Vec<(String, u64, u64, u64, u64, u64, u64)> = all_words
+        .par_iter()
+        .map(|word| {
+            let lower = word.to_lowercase();
+            let english   = compute_array(&lower, &ENGLISH);
+            let jewish_v  = compute_table(&lower, &jewish);
+            let simple    = compute_array(&lower, &SIMPLE);
+            let mystery_v = compute_table(&lower, &mystery);
+            let majestic  = compute_array(&lower, &MAJESTIC);
+            let eights    = compute_array(&lower, &EIGHTS);
+            (word.clone(), english, jewish_v, simple, mystery_v, majestic, eights)
+        })
+        .collect();
+
+    // build the matrix index sequentially — HashMap requires exclusive access
+    let mut matrix: PrebuiltMatrix = HashMap::new();
+    for cipher in &["english","jewish","simple","mystery","majestic","eights"] {
+        matrix.insert(cipher.to_string(), HashMap::new());
+    }
+
+    for (word, english, jewish_v, simple, mystery_v, majestic, eights) in computed {
+        let pairs = [
+            ("english",  english),
+            ("jewish",   jewish_v),
+            ("simple",   simple),
+            ("mystery",  mystery_v),
+            ("majestic", majestic),
+            ("eights",   eights),
+        ];
+        for (cipher_name, value) in &pairs {
+            matrix
+                .get_mut(*cipher_name)
+                .unwrap()
+                .entry(*value)
+                .or_insert_with(Vec::new)
+                .push(word.clone());
+        }
+    }
+
     let out_dir = env::var("OUT_DIR").unwrap();
     let out_path = Path::new(&out_dir).join("matrix.bin");
     let encoded = bincode::serialize(&matrix).expect("build.rs: failed to serialize matrix");
     fs::write(&out_path, &encoded).expect("build.rs: failed to write matrix.bin");
-
-    println!("cargo:rerun-if-changed=build.rs");
 }

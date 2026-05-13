@@ -1,24 +1,34 @@
 // src/gui.rs
 // native GUI using egui/eframe
-// launched with --gui flag
-// shares cipher, matrix, textee, phrase logic with tui.rs
+// background thread handles heavy computation
+// 369ms delay between input and recompute
 
 use eframe::egui;
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
+
 use crate::cipher;
 use crate::matrix::{Cipher, Matrix};
 use crate::phrase::{self, TaggedWord};
 use crate::textee;
 
-// application state — mirrors App in tui.rs
+struct ComputeResult {
+    version: u64,
+    results: Vec<cipher::Gematria>,
+    matches: Vec<String>,
+}
+
 pub struct GematriaApp {
-    input:        String,
-    results:      Vec<cipher::Gematria>,
-    selected:     Option<usize>,
-    matches:      Vec<String>,
-    matrix:       Matrix,
-    tagged_words: Vec<TaggedWord>,
-    limit:        usize,
-    delay:        u64,
+    input:         String,
+    input_version: u64,
+    results:       Vec<cipher::Gematria>,
+    selected:      Option<usize>,
+    matches:       Vec<String>,
+    limit:         usize,
+    last_typed:    Option<Instant>,
+    tx:            mpsc::Sender<(u64, String)>,
+    rx:            mpsc::Receiver<ComputeResult>,
 }
 
 impl GematriaApp {
@@ -26,61 +36,81 @@ impl GematriaApp {
         matrix:       Matrix,
         tagged_words: Vec<TaggedWord>,
         limit:        usize,
-        delay:        u64,
         initial_text: Option<String>,
     ) -> GematriaApp {
+        let (work_tx, work_rx) = mpsc::channel::<(u64, String)>();
+        let (result_tx, result_rx) = mpsc::channel::<ComputeResult>();
+
+        let bg_matrix      = std::sync::Arc::new(matrix);
+        let bg_tagged      = std::sync::Arc::new(tagged_words);
+        let bg_limit       = limit;
+        let bg_matrix_clone = std::sync::Arc::clone(&bg_matrix);
+        let bg_tagged_clone = std::sync::Arc::clone(&bg_tagged);
+
+        thread::spawn(move || {
+            while let Ok((version, input)) = work_rx.recv() {
+                let phrases = textee::extract(&input, bg_limit);
+                let results: Vec<cipher::Gematria> = phrases
+                    .iter()
+                    .map(|p| cipher::calculate(&p.text))
+                    .collect();
+
+                let matches = if let Some(g) = results.first() {
+                    let mut m = bg_matrix_clone.lookup(&Cipher::English, g.english).to_vec();
+                    let generated = phrase::generate(
+                        &bg_tagged_clone,
+                        g.english,
+                        &Cipher::English,
+                        bg_limit,
+                    );
+                    m.extend(generated.into_iter().map(|p| format!("[{}]", p.text)));
+                    m
+                } else {
+                    Vec::new()
+                };
+
+                let _ = result_tx.send(ComputeResult { version, results, matches });
+            }
+        });
+
         let mut app = GematriaApp {
-            input:        initial_text.unwrap_or_default(),
-            results:      Vec::new(),
-            selected:     None,
-            matches:      Vec::new(),
-            matrix,
-            tagged_words,
+            input:         initial_text.unwrap_or_default(),
+            input_version: 0,
+            results:       Vec::new(),
+            selected:      None,
+            matches:       Vec::new(),
             limit,
-            delay,
+            last_typed:    None,
+            tx:            work_tx,
+            rx:            result_rx,
         };
+
         if !app.input.is_empty() {
-            app.recompute();
+            app.queue_recompute();
         }
         app
     }
 
-    fn recompute(&mut self) {
-        let phrases = textee::extract(&self.input, self.limit);
-        self.results = phrases
-            .iter()
-            .map(|p| cipher::calculate(&p.text))
-            .collect();
-        if !self.results.is_empty() {
-            self.selected = Some(0);
-            self.update_matches();
-        } else {
-            self.selected = None;
-            self.matches.clear();
-        }
+    fn queue_recompute(&mut self) {
+        self.input_version += 1;
+        self.last_typed = Some(Instant::now());
     }
 
-    fn update_matches(&mut self) {
-        if let Some(i) = self.selected {
-            if let Some(g) = self.results.get(i) {
-                let dict_matches = self.matrix
-                    .lookup(&Cipher::English, g.english)
-                    .to_vec();
+    fn tick(&mut self) {
+        if let Some(typed_at) = self.last_typed {
+            if typed_at.elapsed() >= Duration::from_millis(369) {
+                let _ = self.tx.send((self.input_version, self.input.clone()));
+                self.last_typed = None;
+            }
+        }
 
-                let generated = phrase::generate(
-                    &self.tagged_words,
-                    g.english,
-                    &Cipher::English,
-                    self.limit,
-                );
-
-                let gen_texts: Vec<String> = generated
-                    .into_iter()
-                    .map(|p| format!("[{}]", p.text))
-                    .collect();
-
-                self.matches = dict_matches;
-                self.matches.extend(gen_texts);
+        while let Ok(result) = self.rx.try_recv() {
+            if result.version == self.input_version {
+                self.results = result.results;
+                self.matches = result.matches;
+                if !self.results.is_empty() {
+                    self.selected = Some(0);
+                }
             }
         }
     }
@@ -88,19 +118,22 @@ impl GematriaApp {
 
 impl eframe::App for GematriaApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // top panel — input
+        self.tick();
+
+        // request repaint so tick fires regularly
+        ctx.request_repaint_after(Duration::from_millis(50));
+
         egui::TopBottomPanel::top("input_panel").show(ctx, |ui| {
             ui.heading("RustyGematria");
             ui.horizontal(|ui| {
                 ui.label("Input:");
                 let response = ui.text_edit_singleline(&mut self.input);
                 if response.changed() {
-                    self.recompute();
+                    self.queue_recompute();
                 }
             });
         });
 
-        // bottom panel — matches
         egui::TopBottomPanel::bottom("matches_panel")
             .min_height(120.0)
             .show(ctx, |ui| {
@@ -117,10 +150,8 @@ impl eframe::App for GematriaApp {
                         if self.matches.is_empty() {
                             ui.label("no matches");
                         } else {
-                            // display matches as wrapping text
                             ui.horizontal_wrapped(|ui| {
                                 for m in &self.matches {
-                                    // generated phrases in brackets styled differently
                                     if m.starts_with('[') {
                                         ui.colored_label(egui::Color32::GOLD, m);
                                     } else {
@@ -132,11 +163,9 @@ impl eframe::App for GematriaApp {
                     });
             });
 
-        // central panel — results table
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Results");
 
-            // column headers
             egui::Grid::new("results_header")
                 .num_columns(7)
                 .striped(false)
@@ -166,7 +195,6 @@ impl eframe::App for GematriaApp {
                             for (i, g) in self.results.iter().enumerate() {
                                 let is_selected = selected == Some(i);
 
-                                // highlight selected row
                                 let label_style = if is_selected {
                                     egui::RichText::new(&g.original)
                                         .color(egui::Color32::BLACK)
@@ -190,7 +218,6 @@ impl eframe::App for GematriaApp {
 
                             if new_selected != selected {
                                 self.selected = new_selected;
-                                self.update_matches();
                             }
                         });
                 });
@@ -198,12 +225,11 @@ impl eframe::App for GematriaApp {
     }
 }
 
-// entry point called from main when --gui is passed
 pub fn run(
     matrix:       Matrix,
     tagged_words: Vec<TaggedWord>,
     limit:        usize,
-    delay:        u64,
+    _delay:       u64,
     initial_text: Option<String>,
 ) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -221,7 +247,6 @@ pub fn run(
                 matrix,
                 tagged_words,
                 limit,
-                delay,
                 initial_text,
             )))
         }),

@@ -15,7 +15,9 @@ serde      = { version = "1", features = ["derive"] }
 bincode    = "1"
 egui       = "0.29"
 eframe     = "0.29"
+rayon      = "1.10"
 
 [build-dependencies]
 serde      = { version = "1", features = ["derive"] }
 bincode    = "1"
+rayon      = "1.10"

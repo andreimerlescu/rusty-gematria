@@ -7,6 +7,10 @@ edition = "2021"
 strip = true
 opt-level = 3
 
+[lib]
+name = "rusty_gematria"
+path = "src/lib.rs"
+
 [dependencies]
 ratatui    = "0.29"
 crossterm  = "0.28"

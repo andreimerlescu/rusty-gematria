@@ -39,6 +39,7 @@ impl Cipher {
 // the full index deserialized from the embedded binary
 type MatrixIndex = HashMap<String, HashMap<u64, Vec<String>>>;
 
+#[derive(Clone)]
 pub struct Matrix {
     index: MatrixIndex,
 }

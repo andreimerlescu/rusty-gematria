@@ -112,7 +112,7 @@ impl eframe::App for GematriaApp {
                 ui.heading(value_label);
 
                 egui::ScrollArea::vertical()
-                    .id_source("matches_scroll")
+                    .id_salt("matches_scroll")
                     .show(ui, |ui| {
                         if self.matches.is_empty() {
                             ui.label("no matches");
@@ -154,7 +154,7 @@ impl eframe::App for GematriaApp {
             ui.separator();
 
             egui::ScrollArea::vertical()
-                .id_source("results_scroll")
+                .id_salt("results_scroll")
                 .show(ui, |ui| {
                     egui::Grid::new("results_grid")
                         .num_columns(7)
